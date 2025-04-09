@@ -3,7 +3,7 @@ from discord.ext import commands
 from datetime import datetime
 
 BOOST_CHANNEL_ID = 1348493920031604786
-BOOST_IMAGE = "https://cdn.discordapp.com/attachments/1102406059722801184/1359611493775179857/49777FF6-F8D2-4D28-9603-FB97490319D0.png?ex=67f81c60&is=67f6cae0&hm=23ed375a8ef12094313ac03d5856b68c4c3c6cb4fe85302914d984bd820cec2a&"
+BOOST_IMAGE = "https://cdn.discordapp.com/attachments/1102406059722801184/1359660859978289284/85E1E65D-F685-4C47-988E-9BD653941572.png?ex=67f84a5a&is=67f6f8da&hm=20ab2d834ceeecb3fec7cc55f3c3056820288c7f61b73c516b2377994070c48c&"
 EMBED_COLOR = discord.Color.from_str("#DCCEF2")
 
 class BoostAutoTask(commands.Cog, name="BoostAutoTask"):
@@ -34,7 +34,7 @@ class BoostAutoTask(commands.Cog, name="BoostAutoTask"):
             timestamp=datetime.utcnow()
         )
         embed.set_image(url=BOOST_IMAGE)
-        embed.set_footer(text="NOCTÆ • Boost détecté automatiquement")
+        embed.set_footer(text="Lonely kurozen • Boost détecté automatiquement")
 
         await channel.send(embed=embed)
 
