@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.vscode/
+
+assets/fonts/*.ttf
+assets/images/*.png
+
+# fichiers systèmes à ignorer (mac/windows)
+.DS_Store
+Thumbs.db 
