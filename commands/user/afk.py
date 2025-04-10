@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.utils import get
 import os
 import motor.motor_asyncio
 from dotenv import load_dotenv
@@ -11,22 +10,25 @@ MONGO_URI = os.getenv("MONGO_URI")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 client_mongo = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = client_mongo[DATABASE_NAME]
-afk_status = db["afk_status"]
+afk_status = db["afk_status"]  # 📁 ta collection AFK
 
 class AFKCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # === COMMANDES ===
+    # === PREFIX ===
     @commands.command(name="afk")
-    async def afk_prefix(self, ctx):
-        await self.set_afk(ctx.author, ctx)
+    async def afk_prefix(self, ctx, *, reason=""):
+        await self.set_afk(ctx.author, ctx, reason)
 
-    @app_commands.command(name="afk", description="Passe en mode AFK (Away From Keyboard).")
-    async def afk_slash(self, interaction: discord.Interaction):
-        await self.set_afk(interaction.user, interaction)
+    # === SLASH ===
+    @app_commands.command(name="afk", description="Passe en mode AFK avec une raison facultative.")
+    @app_commands.describe(reason="Ex: Je vais manger un tacos")
+    async def afk_slash(self, interaction: discord.Interaction, reason: str = ""):
+        await self.set_afk(interaction.user, interaction, reason)
 
-    async def set_afk(self, member, ctx_or_inter):
+    # === LOGIQUE COMMUNE ===
+    async def set_afk(self, member, ctx_or_inter, reason):
         if await afk_status.find_one({"_id": member.id}):
             msg = "🚫 Tu es déjà en AFK."
         else:
@@ -37,9 +39,12 @@ class AFKCog(commands.Cog):
                 await afk_status.insert_one({
                     "_id": member.id,
                     "guild_id": member.guild.id,
-                    "original_nick": original_name
+                    "original_nick": original_name,
+                    "reason": reason.strip()
                 })
                 msg = f"✅ Tu es maintenant AFK : `{afk_name}`"
+                if reason:
+                    msg += f"\n📌 Raison : {reason}"
             except discord.Forbidden:
                 msg = "❌ Je n'ai pas la permission de changer ton pseudo."
 
@@ -48,12 +53,26 @@ class AFKCog(commands.Cog):
         else:
             await ctx_or_inter.response.send_message(msg, ephemeral=True)
 
-    # === RESTORE AUTO ===
+    # === RESTORE AUTOMATIQUE ===
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot:
             return
+
         await self.restore_if_afk(message.author, message.guild)
+
+        for mention in message.mentions:
+            record = await afk_status.find_one({"_id": mention.id, "guild_id": message.guild.id})
+            if record:
+                reason = record.get("reason", "").strip()
+                if reason:
+                    description = f"💬 Il est AFK : *{reason}*"
+                else:
+                    description = "💬 Il est AFK"
+
+                embed = discord.Embed(description=description, color=discord.Color.purple())
+                await message.channel.send(embed=embed, delete_after=5)
+                break
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
