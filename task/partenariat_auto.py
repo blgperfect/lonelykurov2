@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 # === CONFIGURATION ===
 load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
-mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+DATABASE_NAME = os.getenv("DATABASE_NAME")
 
-db = client_mongo[DATABASE_NAME]
+mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+db = mongo_client[DATABASE_NAME]  # 👈 ici on reste cohérent
 scores_col = db["partenariat_scores"]
+
 
 CHANNEL_ID = 1349081996542087168  # Salon de partenariat
 ROLE_ID = 1353155776058753154     # Rôle à mentionner
