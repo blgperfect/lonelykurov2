@@ -57,13 +57,13 @@ class WarnSystem(commands.Cog):
         warn_count += 1
 
         # Warn 4 = Kick
-        if warn_count >= 4:
+        if warn_count >= 3:
             try:
                 await member.send(
                     embed=discord.Embed(
                         title="🚫 Expulsion automatique",
                         description=(
-                            f"Bonjour {member.name}, tu as reçu 4 avertissements sur **{guild.name}**, "
+                            f"Bonjour {member.name}, tu as reçu 3 avertissements sur **{guild.name}**, "
                             f"tu as donc été **expulsé automatiquement**."
                         ),
                         color=discord.Color.red()
@@ -72,12 +72,12 @@ class WarnSystem(commands.Cog):
             except discord.Forbidden:
                 pass
 
-            await member.kick(reason="Avertissements cumulés (4)")
+            await member.kick(reason="Avertissements cumulés (3)")
             await warns_col.delete_one({"_id": member.id})
 
             embed = discord.Embed(
                 title="🚫 Membre expulsé automatiquement",
-                description=f"{member.mention} a été **kick** après 4 avertissements.",
+                description=f"{member.mention} a été **kick** après 3 avertissements.",
                 color=discord.Color.red(),
                 timestamp=datetime.utcnow()
             )
