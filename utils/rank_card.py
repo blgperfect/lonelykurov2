@@ -1,83 +1,50 @@
-from PIL import Image, ImageDraw, ImageFont, ImageOps
-import os
-from io import BytesIO
+# utils/rank_card.py
 
-# Chemins vers les ressources
-FONT_PATH = os.path.join("assets", "fonts", "NotoSans-Regular.ttf")
-BACKGROUND_PATH = os.path.join("assets", "images", "background.png")
+from PIL import Image, ImageDraw, ImageFont
+import io
+import aiohttp
 
-def draw_progress_bar(draw, x, y, width, height, percentage, color_bg, color_fill):
-    draw.rectangle([x, y, x + width, y + height], fill=color_bg)
-    draw.rectangle([x, y, x + int(width * percentage), y + height], fill=color_fill)
+BACKGROUND_PATH = "assets/images/background.png"
+FONT_PATH = "assets/fonts/NotoSans-Regular.ttf"
 
-async def generate_rank_card(member, level=0, current_xp=0, xp_needed=100, background_path=None):
-    width, height = 800, 240
-    background_path = background_path or BACKGROUND_PATH
-
-    background = Image.open(background_path).convert("RGBA").resize((width, height))
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 120))
-    background = Image.alpha_composite(background, overlay)
-
-    card = Image.new("RGBA", (width, height))
-    card.paste(background, (0, 0))
-
+async def generate_rank_card(member, level, xp, next_level_xp, total_messages, total_vocal):
+    width, height = 900, 250
+    card = Image.open(BACKGROUND_PATH).resize((width, height)).convert("RGBA")
     draw = ImageDraw.Draw(card)
-    font_large = ImageFont.truetype(FONT_PATH, 32)
-    font_medium = ImageFont.truetype(FONT_PATH, 24)
-    font_small = ImageFont.truetype(FONT_PATH, 18)
 
-    draw.text((180, 40), f"{member.display_name}", font=font_large, fill=(255, 255, 255))
-    draw.text((180, 90), f"Niveau : {level}", font=font_medium, fill=(255, 255, 255))
-    draw.text((180, 125), f"XP : {current_xp} / {xp_needed}", font=font_small, fill=(255, 255, 255))
-
-    percentage = current_xp / xp_needed if xp_needed else 0
-    draw_progress_bar(draw, 180, 160, 580, 20, percentage, (50, 50, 50), (102, 204, 255))
-
-    avatar_asset = await member.display_avatar.read()
-    avatar = Image.open(BytesIO(avatar_asset)).convert("RGBA").resize((128, 128))
-    mask = Image.new("L", avatar.size, 0)
-    draw_mask = ImageDraw.Draw(mask)
-    draw_mask.ellipse((0, 0, 128, 128), fill=255)
-    avatar = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
-    avatar.putalpha(mask)
-
-    card.paste(avatar, (30, 55), avatar)
-
-    output_buffer = BytesIO()
-    card.save(output_buffer, format="PNG")
-    output_buffer.seek(0)
-    return output_buffer
-
-async def generate_leaderboard_image(members_data):
-    from PIL import ImageFont
-    width, height = 900, 110 + len(members_data) * 90
-    background = Image.new("RGBA", (width, height), (0, 0, 0, 0))  # fond transparent
-
-    draw = ImageDraw.Draw(background)
+    # Chargement police
     font_large = ImageFont.truetype(FONT_PATH, 36)
-    font_medium = ImageFont.truetype(FONT_PATH, 24)
-    font_small = ImageFont.truetype(FONT_PATH, 18)
+    font_medium = ImageFont.truetype(FONT_PATH, 28)
+    font_small = ImageFont.truetype(FONT_PATH, 22)
 
-    draw.text((width // 2 - 140, 20), "🎖️ Leaderboard XP", font=font_large, fill="white")
+    # Avatar
+    avatar_asset = member.avatar or member.default_avatar
+    buffer_avatar = io.BytesIO()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(avatar_asset.url) as response:
+            buffer_avatar.write(await response.read())
+    avatar_img = Image.open(buffer_avatar).resize((160, 160)).convert("RGBA")
+    mask = Image.new("L", avatar_img.size, 0)
+    draw_mask = ImageDraw.Draw(mask)
+    draw_mask.ellipse((0, 0) + avatar_img.size, fill=255)
+    avatar_img.putalpha(mask)
+    card.paste(avatar_img, (40, 45), avatar_img)
 
-    for idx, data in enumerate(members_data):
-        y = 100 + idx * 90
-        box_color = (255, 105, 180, 180)  # rose plus foncé semi-transparent
-        draw.rounded_rectangle([50, y, width - 50, y + 80], radius=20, fill=box_color)
+    # Texte
+    draw.text((230, 30), member.display_name, font=font_large, fill="white")
+    draw.text((230, 75), f"Niveau : {level}", font=font_medium, fill="white")
+    draw.text((230, 110), f"XP Total : {xp} / {next_level_xp}", font=font_medium, fill="white")
+    draw.text((230, 150), f"💬 Msgs: {total_messages}  🔊 Vocal: {total_vocal} min", font=font_small, fill="#cccccc")
 
-        # Avatar
-        avatar_data = await data["avatar"].read()
-        avatar = Image.open(BytesIO(avatar_data)).convert("RGBA").resize((64, 64))
-        mask = Image.new("L", (64, 64), 0)
-        draw_mask = ImageDraw.Draw(mask)
-        draw_mask.ellipse((0, 0, 64, 64), fill=255)
-        avatar.putalpha(mask)
-        background.paste(avatar, (60, y + 8), avatar)
+    # Barre de progression
+    bar_x, bar_y = 230, 200
+    bar_width, bar_height = 620, 25
+    progress = min(xp / next_level_xp, 1.0)
+    draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], fill="#3e3e3e")
+    draw.rectangle([bar_x, bar_y, bar_x + int(bar_width * progress), bar_y + bar_height], fill="#9f59d1")
 
-        draw.text((140, y + 10), f"#{idx + 1}  {data['name']}", font=font_medium, fill="white")
-        draw.text((140, y + 45), f"Niveau {data['level']} | XP Total : {data['total_xp']}", font=font_small, fill="white")
-
-    buffer = BytesIO()
-    background.save(buffer, format="PNG")
+    # Sauvegarde image
+    buffer = io.BytesIO()
+    card.save(buffer, "PNG")
     buffer.seek(0)
     return buffer
