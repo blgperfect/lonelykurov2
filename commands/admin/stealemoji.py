@@ -18,9 +18,11 @@ class EmojiSteal(commands.Cog):
             await ctx_or_inter.response.defer()
             send = ctx_or_inter.followup.send
             guild = ctx_or_inter.guild
+            user = ctx_or_inter.user
         else:
             send = ctx_or_inter.send
             guild = ctx_or_inter.guild
+            user = ctx_or_inter.author
 
         found = re.findall(r"<a?:\w+:(\d+)>", emojis_raw)
         names = re.findall(r"<a?:(\w+):\d+>", emojis_raw)
@@ -31,7 +33,7 @@ class EmojiSteal(commands.Cog):
         added = []
         for emoji_id, emoji_name in zip(found, names):
             try:
-                is_animated = emojis_raw.find(f"<a:{emoji_name}:{emoji_id}>") != -1
+                is_animated = f"<a:{emoji_name}:{emoji_id}>" in emojis_raw
                 url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{'gif' if is_animated else 'png'}"
 
                 async with self.session.get(url) as resp:
@@ -55,11 +57,13 @@ class EmojiSteal(commands.Cog):
     # === SLASH ===
     @app_commands.command(name="steal", description="Ajoute un ou plusieurs emojis à ce serveur.")
     @app_commands.describe(emojis="Colle un ou plusieurs emojis personnalisés")
+    @app_commands.checks.has_permissions(manage_emojis_and_stickers=True)
     async def steal_slash(self, interaction: discord.Interaction, emojis: str):
         await self.steal_emojis(interaction, emojis)
 
     # === PREFIX ===
     @commands.command(name="steal")
+    @commands.has_permissions(manage_emojis_and_stickers=True)
     async def steal_prefix(self, ctx: commands.Context, *, emojis: str):
         await self.steal_emojis(ctx, emojis)
 
