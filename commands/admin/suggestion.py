@@ -14,8 +14,8 @@ def create_embed(title: str, description: str, color: int = 0xcbb5f1) -> discord
 # Charger les variables d'environnement
 load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
-
 client_mongo = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+
 db = client_mongo["kurozen_system"]  # 👈 ici tu forces la base que tu veux
 suggestions_col = db["suggestions_config"]
 
