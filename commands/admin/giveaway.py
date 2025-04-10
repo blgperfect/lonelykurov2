@@ -6,11 +6,16 @@ import motor.motor_asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
-MONGO_URI = os.getenv("MONGO_URI")
-DB_NAME = os.getenv("DATABASE_NAME")
 
+# Récupérer les variables nécessaires
+MONGO_URI = os.getenv("MONGO_URI")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+
+# Connexion MongoDB
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-db = mongo_client[DB_NAME]
+db = mongo_client[DATABASE_NAME]
+
+# Collection spécifique
 giveaway_col = db["giveaways"]
 
 class GiveawayView(discord.ui.View):
