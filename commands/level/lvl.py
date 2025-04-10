@@ -31,7 +31,6 @@ class Level(commands.Cog):
     @app_commands.describe(member="Le membre à consulter.")
     async def lvl(self, interaction: discord.Interaction, member: discord.Member = None):
         await interaction.response.defer()
-
         member = member or interaction.user
         guild = interaction.guild
         user_id = str(member.id)
@@ -55,22 +54,22 @@ class Level(commands.Cog):
         total_vocal = user_data.get("vocal_minutes", 0)
         next_level_xp = 100 + (level * 100)
 
-        # Gestion rôles
+        # Mise à jour des rôles en fonction du niveau actuel :
         role_to_add = None
-        roles_to_remove = []
-        for lvl, role_id in LEVEL_ROLES.items():
-            role = guild.get_role(role_id)
-            if level >= lvl:
+        for lvl_threshold in sorted(LEVEL_ROLES.keys()):
+            role = guild.get_role(LEVEL_ROLES[lvl_threshold])
+            if level >= lvl_threshold:
                 role_to_add = role
-            if role in member.roles and level < lvl:
+        roles_to_remove = []
+        for lvl_threshold in LEVEL_ROLES:
+            role = guild.get_role(LEVEL_ROLES[lvl_threshold])
+            if role in member.roles and role != role_to_add:
                 roles_to_remove.append(role)
-
         if role_to_add and role_to_add not in member.roles:
             await member.add_roles(role_to_add)
-            for r in roles_to_remove:
-                await member.remove_roles(r)
+        for role in roles_to_remove:
+            await member.remove_roles(role)
 
-        # Génère la carte
         card_image = await generate_rank_card(
             member=member,
             level=level,

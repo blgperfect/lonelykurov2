@@ -18,6 +18,8 @@ intents.messages = True
 intents.guilds = True
 intents.reactions = True
 intents.message_content = True
+intents.voice_states = True  # ⬅️ CRUCIAL
+
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 discord_client = discord.Client(intents=intents, activity=discord.CustomActivity('Lonely kurozen!!! <3'))

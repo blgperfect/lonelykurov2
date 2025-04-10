@@ -13,9 +13,6 @@ mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = mongo_client[DATABASE_NAME]
 user_collection = db["users"]
 
-# Dictionnaire pour stocker les heures d'entrée en vocal
-voice_tracker = {}
-
 class ActivityTracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -26,20 +23,33 @@ class ActivityTracker(commands.Cog):
         user_id = str(member.id)
         guild_id = str(member.guild.id)
 
+        print(f"[DEBUG] Voice update: {member.display_name} - {before.channel} -> {after.channel}")
+
         if before.channel is None and after.channel is not None:
             # Entrée en vocal
-            voice_tracker[user_id] = datetime.datetime.utcnow()
+            print(f"[DEBUG] {member.display_name} est entré en vocal.")
+            await user_collection.update_one(
+                {"user_id": user_id, "guild_id": guild_id},
+                {"$set": {"voice_join_time": datetime.datetime.utcnow()}},
+                upsert=True
+            )
+
         elif before.channel is not None and after.channel is None:
             # Sortie du vocal
-            if user_id in voice_tracker:
-                join_time = voice_tracker.pop(user_id)
+            print(f"[DEBUG] {member.display_name} a quitté le vocal.")
+            user_data = await user_collection.find_one({"user_id": user_id, "guild_id": guild_id})
+            if user_data and "voice_join_time" in user_data:
+                join_time = user_data["voice_join_time"]
                 now = datetime.datetime.utcnow()
                 duration = int((now - join_time).total_seconds() // 60)  # en minutes
+                print(f"[DEBUG] Durée en vocal : {duration} minutes.")
 
                 await user_collection.update_one(
                     {"user_id": user_id, "guild_id": guild_id},
-                    {"$inc": {"vocal_minutes": duration}},
-                    upsert=True
+                    {
+                        "$inc": {"vocal_minutes": duration},
+                        "$unset": {"voice_join_time": ""}
+                    }
                 )
 
     # ========== RÉACTIONS ==========
@@ -87,5 +97,6 @@ class ActivityTracker(commands.Cog):
                     upsert=True
                 )
 
+# Ajout du cog dans le bot
 async def setup(bot: commands.Bot):
     await bot.add_cog(ActivityTracker(bot))
