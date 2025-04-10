@@ -7,6 +7,7 @@ import motor.motor_asyncio
 import os
 from dotenv import load_dotenv
 import pytz
+import aiohttp
 
 load_dotenv()
 
@@ -77,6 +78,7 @@ TICKETS = {
         "role": ROLES["propartenaire"],
     },
 }
+
 class TicketView(View):
     def __init__(self, ticket_keys):
         super().__init__(timeout=None)
@@ -85,7 +87,6 @@ class TicketView(View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return True
-
 
 class MainTicketView(View):
     def __init__(self):
@@ -98,7 +99,6 @@ class MainTicketView(View):
     @button(label="🛡️ Application staff", style=discord.ButtonStyle.secondary, custom_id="main_staff")
     async def staff(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Quel rôle t'intéresse ?", view=TicketView(["admin", "mod", "ecoute", "propartenaire"]), ephemeral=True)
-
 
 class TicketSystem(commands.Cog):
     def __init__(self, bot):
@@ -200,7 +200,6 @@ class TicketSystem(commands.Cog):
         view = ConfirmCloseView(interaction.user)
         await interaction.response.send_message("⚠️ Veux-tu vraiment fermer ce ticket ?", view=view, ephemeral=True)
 
-
 class ConfirmCloseView(View):
     def __init__(self, closer):
         super().__init__(timeout=None)
@@ -213,6 +212,16 @@ class ConfirmCloseView(View):
         await close_ticket_static(interaction.channel, interaction.user)
         await interaction.response.send_message("✅ Ticket fermé.", ephemeral=True)
 
+async def upload_to_sourcebin(content: str) -> str:
+    async with aiohttp.ClientSession() as session:
+        json_data = {
+            "files": [{"content": content, "name": "transcript.txt"}],
+            "title": "Transcript Ticket",
+            "description": "Transcription du ticket Discord",
+        }
+        async with session.post("https://sourceb.in/api/bins", json=json_data) as resp:
+            data = await resp.json()
+            return f"https://sourceb.in/{data['key']}"
 
 async def close_ticket_static(channel, user):
     doc = await tickets_collection.find_one({"channel_id": channel.id})
@@ -220,20 +229,21 @@ async def close_ticket_static(channel, user):
         return
 
     log = channel.guild.get_channel(LOG_CHANNEL_ID)
-    file, count = await generate_transcript_static(channel)
+    transcript, count = await generate_transcript_static(channel)
+    transcript_link = await upload_to_sourcebin(transcript)
+
     embed = discord.Embed(title="📁 Ticket fermé", color=EMBED_COLOR, timestamp=datetime.now(TIMEZONE))
     embed.add_field(name="Type de ticket", value=TICKETS.get(doc["type"], {}).get("title", "Inconnu"), inline=True)
-    embed.add_field(name="Salon", value=channel.mention, inline=True)
+    embed.add_field(name="Salon", value=channel.name, inline=True)
     embed.add_field(name="Auteur", value=f"<@{doc['user_id']}>", inline=True)
     embed.add_field(name="Fermé par", value=user.mention, inline=True)
-    embed.add_field(name="Ouvert", value=doc['opened_at'].astimezone(TIMEZONE).strftime('%d/%m/%Y à %H:%M'), inline=True)
     embed.add_field(name="Messages", value=str(count), inline=True)
+    embed.add_field(name="Transcript", value=f"[Voir le transcript]({transcript_link})", inline=False)
     embed.set_footer(text="Système de tickets")
-    await log.send(embed=embed, file=discord.File(file))
-    os.remove(file)
+
+    await log.send(embed=embed)
     await tickets_collection.update_one({"channel_id": channel.id}, {"$set": {"closed_at": datetime.now(TIMEZONE)}})
     await channel.delete()
-
 
 async def generate_transcript_static(channel):
     messages = []
@@ -241,11 +251,7 @@ async def generate_transcript_static(channel):
         if not msg.author.bot:
             timestamp = msg.created_at.astimezone(TIMEZONE).strftime("%Y-%m-%d %H:%M")
             messages.append(f"[{timestamp}] {msg.author.name}: {msg.content}")
-    filename = f"transcript-{channel.name}.txt"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write("\n".join(messages))
-    return filename, len(messages)
-
+    return "\n".join(messages), len(messages)
 
 # Setup
 async def setup(bot: commands.Bot):
