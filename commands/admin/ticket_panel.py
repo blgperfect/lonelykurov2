@@ -6,6 +6,7 @@ from datetime import datetime
 import motor.motor_asyncio
 import os
 from dotenv import load_dotenv
+import pytz
 
 load_dotenv()
 
@@ -19,6 +20,7 @@ TICKET_CATEGORY_ID = 1350908669373583410
 LOG_CHANNEL_ID = 1359748159869292614
 EMBED_COLOR = discord.Color.from_str("#C9B6D9")
 EMBED_IMAGE_URL = "https://cdn.discordapp.com/attachments/1102406059722801184/1359676329607565503/203A3ECB-96AE-489A-A84B-4F02F8AD5900.png"
+TIMEZONE = pytz.timezone("Europe/Paris")
 
 ROLES = {
     "urgence": 1350913347444412416,
@@ -75,7 +77,6 @@ TICKETS = {
         "role": ROLES["propartenaire"],
     },
 }
-
 class TicketView(View):
     def __init__(self, ticket_keys):
         super().__init__(timeout=None)
@@ -85,11 +86,11 @@ class TicketView(View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return True
 
-    async def on_error(self, interaction: discord.Interaction, error: Exception, item) -> None:
-        await interaction.response.send_message("Erreur lors du bouton.", ephemeral=True)
-
 
 class MainTicketView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
     @button(label="🎫 Autres demandes", style=discord.ButtonStyle.secondary, custom_id="main_autres")
     async def autres(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Choisis une option :", view=TicketView(["urgence", "partenariat", "autre"]), ephemeral=True)
@@ -118,10 +119,10 @@ class TicketSystem(commands.Cog):
         }
 
         if "role" in config and config["role"]:
-            overwrites[guild.get_role(config["role"])] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, attach_files=True)
+            overwrites[guild.get_role(config["role"])] = discord.PermissionOverwrite(view_channel=True)
         elif "mentions" in config:
             for rid in config["mentions"]:
-                overwrites[guild.get_role(rid)] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, attach_files=True)
+                overwrites[guild.get_role(rid)] = discord.PermissionOverwrite(view_channel=True)
 
         channel = await guild.create_text_channel(
             name=f"ticket-{user.name}",
@@ -136,7 +137,7 @@ class TicketSystem(commands.Cog):
         elif "mentions" in config:
             mention = " ".join([f"<@&{rid}>" for rid in config["mentions"]])
 
-        embed = discord.Embed(title=config["title"], description=config["message"], color=EMBED_COLOR, timestamp=datetime.utcnow())
+        embed = discord.Embed(title=config["title"], description=config["message"], color=EMBED_COLOR, timestamp=datetime.now(TIMEZONE))
         embed.set_image(url=EMBED_IMAGE_URL)
 
         await channel.send(f"{user.mention} bienvenue dans ton ticket !\n{mention}", embed=embed)
@@ -146,7 +147,7 @@ class TicketSystem(commands.Cog):
             "user_id": user.id,
             "username": str(user),
             "type": ticket_type,
-            "opened_at": datetime.utcnow(),
+            "opened_at": datetime.now(TIMEZONE),
             "closed_at": None
         })
 
@@ -166,7 +167,7 @@ class TicketSystem(commands.Cog):
             title="🎟️ Panel des tickets",
             description="Bienvenue dans le système de ticket. Sélectionne une catégorie ci-dessous pour commencer.",
             color=EMBED_COLOR,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(TIMEZONE)
         )
         embed.set_image(url=EMBED_IMAGE_URL)
         await ctx.send(embed=embed, view=MainTicketView())
@@ -178,7 +179,7 @@ class TicketSystem(commands.Cog):
             title="🎟️ Panel des tickets",
             description="Bienvenue dans le système de ticket. Sélectionne une catégorie ci-dessous pour commencer.",
             color=EMBED_COLOR,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(TIMEZONE)
         )
         embed.set_image(url=EMBED_IMAGE_URL)
         await interaction.response.send_message(embed=embed, view=MainTicketView(), ephemeral=False)
@@ -202,7 +203,7 @@ class TicketSystem(commands.Cog):
 
 class ConfirmCloseView(View):
     def __init__(self, closer):
-        super().__init__(timeout=30)
+        super().__init__(timeout=None)
         self.closer = closer
 
     @button(label="✅ Confirmer la fermeture", style=discord.ButtonStyle.danger)
@@ -220,13 +221,17 @@ async def close_ticket_static(channel, user):
 
     log = channel.guild.get_channel(LOG_CHANNEL_ID)
     file, count = await generate_transcript_static(channel)
-    embed = discord.Embed(title="📁 Ticket fermé", color=EMBED_COLOR, timestamp=datetime.utcnow())
+    embed = discord.Embed(title="📁 Ticket fermé", color=EMBED_COLOR, timestamp=datetime.now(TIMEZONE))
+    embed.add_field(name="Type de ticket", value=TICKETS.get(doc["type"], {}).get("title", "Inconnu"), inline=True)
+    embed.add_field(name="Salon", value=channel.mention, inline=True)
+    embed.add_field(name="Auteur", value=f"<@{doc['user_id']}>", inline=True)
     embed.add_field(name="Fermé par", value=user.mention, inline=True)
+    embed.add_field(name="Ouvert", value=doc['opened_at'].astimezone(TIMEZONE).strftime('%d/%m/%Y à %H:%M'), inline=True)
     embed.add_field(name="Messages", value=str(count), inline=True)
-    embed.set_footer(text="Ticket System")
+    embed.set_footer(text="Système de tickets")
     await log.send(embed=embed, file=discord.File(file))
     os.remove(file)
-    await tickets_collection.update_one({"channel_id": channel.id}, {"$set": {"closed_at": datetime.utcnow()}})
+    await tickets_collection.update_one({"channel_id": channel.id}, {"$set": {"closed_at": datetime.now(TIMEZONE)}})
     await channel.delete()
 
 
@@ -234,7 +239,7 @@ async def generate_transcript_static(channel):
     messages = []
     async for msg in channel.history(limit=None, oldest_first=True):
         if not msg.author.bot:
-            timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M")
+            timestamp = msg.created_at.astimezone(TIMEZONE).strftime("%Y-%m-%d %H:%M")
             messages.append(f"[{timestamp}] {msg.author.name}: {msg.content}")
     filename = f"transcript-{channel.name}.txt"
     with open(filename, "w", encoding="utf-8") as f:
