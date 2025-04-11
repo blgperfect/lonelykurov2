@@ -1,127 +1,101 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-from discord.ui import View, Button, Select
-import os
-from pathlib import Path
+from help_data import CATEGORIES
 
-class HelpView(View):
-    def __init__(self, bot: commands.Bot):
-        super().__init__(timeout=60)
-        self.bot = bot
-        self.add_item(PrefixButton(bot))
-        self.add_item(SlashButton(bot))
-
-def get_category_from_path(path: str):
-    try:
-        # path: /path/to/commands/modo/warn.py → retourne 'modo'
-        parts = Path(path).parts
-        idx = parts.index("commands")
-        return parts[idx + 1]
-    except Exception:
-        return "Autres"
-
-class PrefixButton(Button):
-    def __init__(self, bot):
-        super().__init__(label="📘 Préfixe", style=discord.ButtonStyle.primary)
-        self.bot = bot
+# === Bouton "Accueil" uniquement ===
+class HomeButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Menu principal", style=discord.ButtonStyle.secondary, emoji="🏠", custom_id="home")
 
     async def callback(self, interaction: discord.Interaction):
-        cmds = [cmd for cmd in self.bot.commands if not cmd.hidden]
-        categories = {}
-        for cmd in cmds:
-            path = getattr(cmd.callback.__code__, 'co_filename', None)
-            category = get_category_from_path(path) if path else "Autres"
-            categories.setdefault(category, []).append(cmd)
-
-        view = View(timeout=60)
-        view.add_item(PrefixSelect(categories))
-        await interaction.response.send_message(
-            embed=discord.Embed(title="📘 Commandes Préfixe", description="Choisis une catégorie :", color=discord.Color.blue()),
-            view=view,
-            ephemeral=True
-        )
-
-class SlashButton(Button):
-    def __init__(self, bot):
-        super().__init__(label="📗 Slash", style=discord.ButtonStyle.success)
-        self.bot = bot
-
-    async def callback(self, interaction: discord.Interaction):
-        cmds = self.bot.tree.get_commands()
-        categories = {}
-        for cmd in cmds:
-            if hasattr(cmd.callback, '__code__'):
-                path = cmd.callback.__code__.co_filename
-                category = get_category_from_path(path)
-                categories.setdefault(category, []).append(cmd)
-
-        view = View(timeout=60)
-        view.add_item(SlashSelect(categories))
-        await interaction.response.send_message(
-            embed=discord.Embed(title="📗 Commandes Slash", description="Choisis une catégorie :", color=discord.Color.green()),
-            view=view,
-            ephemeral=True
-        )
-
-class PrefixSelect(Select):
-    def __init__(self, categories: dict):
-        options = [discord.SelectOption(label=c, value=c) for c in categories]
-        super().__init__(placeholder="Catégorie (préfixe)...", options=options, min_values=1, max_values=1)
-        self.categories = categories
-
-    async def callback(self, interaction: discord.Interaction):
-        category = self.values[0]
-        cmds = self.categories[category]
         embed = discord.Embed(
-            title=f"📘 {category}",
-            description=f"Commandes prefix dans `{category}` :",
-            color=discord.Color.blue()
+            title="📖 Kurozen - Menu d'aide",
+            description="Voici la liste complète des commandes disponibles. Utilisez le menu déroulant pour naviguer par catégorie.",
+            color=discord.Color.dark_purple()
         )
-        for cmd in cmds:
-            embed.add_field(name=f"!{cmd.name}", value=cmd.help or "Aucune description", inline=False)
-        await interaction.response.edit_message(embed=embed, view=None)
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1102406059722801184/1360120382203498516/718AAA6C-670B-4B53-8F5C-5CFCF965A134.png?ex=67f9f650&is=67f8a4d0&hm=ade97e3b7f4c4acd1327be28e6e107a0dc214436a466337f4a9ba82fb103c627&")
+        embed.set_thumbnail(url=interaction.client.user.display_avatar.url)
+        embed.set_footer(text="Kurozen • Ton assistant multifonction", icon_url=interaction.client.user.display_avatar.url)
+        await interaction.response.edit_message(embed=embed, view=HelpView())
 
-class SlashSelect(Select):
-    def __init__(self, categories: dict):
-        options = [discord.SelectOption(label=c, value=c) for c in categories]
-        super().__init__(placeholder="Catégorie (slash)...", options=options, min_values=1, max_values=1)
-        self.categories = categories
+# === Sélecteur de commande dans une catégorie ===
+class CommandSelect(discord.ui.Select):
+    def __init__(self, category: str):
+        options = [
+            discord.SelectOption(label=cmd, value=cmd)
+            for cmd in CATEGORIES[category]
+        ]
+        super().__init__(placeholder="Choisissez une commande à afficher", options=options)
+        self.category = category
 
     async def callback(self, interaction: discord.Interaction):
-        category = self.values[0]
-        cmds = self.categories[category]
+        cmd = self.values[0]
+        detail = CATEGORIES[self.category][cmd]
         embed = discord.Embed(
-            title=f"📗 {category}",
-            description=f"Commandes slash dans `{category}` :",
+            title=f"Détail : {cmd}",
+            description=detail,
             color=discord.Color.green()
         )
-        for cmd in cmds:
-            embed.add_field(name=f"/{cmd.name}", value=cmd.description or "Aucune description", inline=False)
-        await interaction.response.edit_message(embed=embed, view=None)
+        embed.set_footer(text="Kurozen • Menu d'aide", icon_url=interaction.client.user.display_avatar.url)
 
-class HelpCommand(commands.Cog):
+        view = HelpView()
+        view.add_item(CommandSelect(category=self.category))
+        view.add_item(HomeButton())
+        await interaction.response.edit_message(embed=embed, view=view)
+
+# === Menu déroulant des catégories ===
+class HelpSelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label=label,
+                value=label,
+                description=f"Voir les commandes dans {label}",
+                emoji=label[0]
+            )
+            for label in CATEGORIES
+        ]
+        super().__init__(placeholder="Choisissez une catégorie", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        selected = self.values[0]
+        commands_list = " ".join([f"`{cmd}`" for cmd in CATEGORIES[selected]])
+
+        embed = discord.Embed(
+            title=f"{selected} - Commandes disponibles",
+            description=f"**Commandes :**\n{commands_list}\n\nSélectionnez une commande ci-dessous pour voir sa description détaillée.",
+            color=discord.Color.blurple()
+        )
+        embed.set_footer(text="Kurozen • Menu d'aide", icon_url=interaction.client.user.display_avatar.url)
+
+        view = HelpView()
+        view.add_item(CommandSelect(category=selected))
+        view.add_item(HomeButton())
+        await interaction.response.edit_message(embed=embed, view=view)
+
+# === Vue simplifiée avec uniquement le select et bouton accueil ===
+class HelpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(HelpSelect())
+
+# === COG Principal ===
+class HelpMenu(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="help")
-    async def help_prefix(self, ctx):
+    @commands.hybrid_command(name="help", description="Affiche toutes les commandes de Kurozen avec catégories")
+    async def help(self, ctx: commands.Context):
         embed = discord.Embed(
-            title="📖 Menu d'aide",
-            description="Bienvenue dans le menu d'aide.\nChoisis entre préfixe ou slash :",
-            color=discord.Color.blurple()
+            title="📖 Kurozen - Menu d'aide",
+            description="Voici la liste complète des commandes disponibles. Utilisez le menu déroulant pour naviguer par catégorie.",
+            color=discord.Color.dark_purple()
         )
-        await ctx.send(embed=embed, view=HelpView(self.bot))
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1102406059722801184/1360120382203498516/718AAA6C-670B-4B53-8F5C-5CFCF965A134.png?ex=67f9f650&is=67f8a4d0&hm=ade97e3b7f4c4acd1327be28e6e107a0dc214436a466337f4a9ba82fb103c627&")
+        embed.set_thumbnail(url=ctx.me.display_avatar.url)
+        embed.set_footer(text="Kurozen • Ton assistant multifonction", icon_url=ctx.me.display_avatar.url)
+        await ctx.send(embed=embed, view=HelpView())
 
-    @app_commands.command(name="help", description="Afficher le menu d’aide du bot")
-    async def help_slash(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📖 Menu d'aide",
-            description="Bienvenue dans le menu d'aide.\nChoisis entre préfixe ou slash :",
-            color=discord.Color.blurple()
-        )
-        await interaction.response.send_message(embed=embed, view=HelpView(self.bot), ephemeral=True)
-
-# === Setup
+# === Charger le COG ===
 async def setup(bot: commands.Bot):
-    await bot.add_cog(HelpCommand(bot))
+    await bot.add_cog(HelpMenu(bot))
