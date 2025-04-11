@@ -27,6 +27,7 @@ afk
 staff(balance un formulaire)
 addrole,removerole
 mute unmute 
+nickname
 
 tache automatique
 boost(remerciment)
@@ -35,3 +36,4 @@ message supprimé / modifier log
 systeme de partenariat automatisé
 annonce automatisé pas besoin de commande annonce
 starboard automatique
+nolink bitch
