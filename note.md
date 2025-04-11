@@ -25,7 +25,7 @@ serverinfo
 userinfo
 afk
 staff(balance un formulaire)
-
+addrole,removerole
 
 tache automatique
 boost(remerciment)
