@@ -26,6 +26,7 @@ userinfo
 afk
 staff(balance un formulaire)
 addrole,removerole
+mute unmute 
 
 tache automatique
 boost(remerciment)
@@ -33,3 +34,4 @@ invite log
 message supprimé / modifier log
 systeme de partenariat automatisé
 annonce automatisé pas besoin de commande annonce
+starboard automatique
