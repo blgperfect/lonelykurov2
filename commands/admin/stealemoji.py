@@ -61,11 +61,6 @@ class EmojiSteal(commands.Cog):
     async def steal_slash(self, interaction: discord.Interaction, emojis: str):
         await self.steal_emojis(interaction, emojis)
 
-    # === PREFIX ===
-    @commands.command(name="steal")
-    @commands.has_permissions(manage_emojis_and_stickers=True)
-    async def steal_prefix(self, ctx: commands.Context, *, emojis: str):
-        await self.steal_emojis(ctx, emojis)
 
 # === EXTENSION ===
 async def setup(bot):

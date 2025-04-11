@@ -15,34 +15,6 @@ class RoleManager(commands.Cog):
             actor != target
         )
 
-    ### ----- PREFIX: ADD ROLE ----- ###
-    @commands.command(name="addrole")
-    @commands.has_permissions(manage_roles=True)
-    async def addrole_cmd(self, ctx, member: discord.Member, role: discord.Role):
-        if not self.can_manage_role(ctx.author, member, role):
-            return await ctx.send("❌ Tu ne peux pas ajouter ce rôle. Trop haut ou membre protégé.")
-        try:
-            if role in member.roles:
-                return await ctx.send("⚠️ Ce membre a déjà ce rôle.")
-            await member.add_roles(role)
-            await ctx.send(f"✅ Rôle **{role.name}** ajouté à {member.mention}.")
-        except Exception as e:
-            await ctx.send(f"🚫 Erreur lors de l'ajout du rôle : `{type(e).__name__}` - {e}")
-
-    ### ----- PREFIX: REMOVE ROLE ----- ###
-    @commands.command(name="removerole")
-    @commands.has_permissions(manage_roles=True)
-    async def removerole_cmd(self, ctx, member: discord.Member, role: discord.Role):
-        if not self.can_manage_role(ctx.author, member, role):
-            return await ctx.send("❌ Tu ne peux pas retirer ce rôle. Trop haut ou membre protégé.")
-        try:
-            if role not in member.roles:
-                return await ctx.send("⚠️ Ce membre n’a pas ce rôle.")
-            await member.remove_roles(role)
-            await ctx.send(f"✅ Rôle **{role.name}** retiré de {member.mention}.")
-        except Exception as e:
-            await ctx.send(f"🚫 Erreur lors du retrait du rôle : `{type(e).__name__}` - {e}")
-
     ### ----- SLASH: ADD ROLE ----- ###
     @app_commands.command(name="addrole", description="Ajoute un rôle à un membre.")
     @app_commands.describe(member="Membre cible", role="Rôle à donner")

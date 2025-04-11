@@ -189,11 +189,6 @@ class RoleSetupCommand(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="rolesetup")
-    @commands.has_permissions(administrator=True)
-    async def rolesetup_prefix(self, ctx):
-        await self.send_roles_embed(ctx)
-
     @app_commands.command(name="rolesetup", description="Affiche le panneau des rôles interactifs.")
     @app_commands.checks.has_permissions(administrator=True)
     async def rolesetup_slash(self, interaction: discord.Interaction):

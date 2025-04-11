@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from help_data import CATEGORIES
 
 # === Bouton "Accueil" uniquement ===
@@ -84,17 +85,17 @@ class HelpMenu(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name="help", description="Affiche toutes les commandes de Kurozen avec catégories")
-    async def help(self, ctx: commands.Context):
+    @app_commands.command(name="help", description="Affiche toutes les commandes de Kurozen avec catégories")
+    async def help_slash(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="📖 Kurozen - Menu d'aide",
             description="Voici la liste complète des commandes disponibles. Utilisez le menu déroulant pour naviguer par catégorie.",
             color=discord.Color.dark_purple()
         )
         embed.set_image(url="https://cdn.discordapp.com/attachments/1102406059722801184/1360120382203498516/718AAA6C-670B-4B53-8F5C-5CFCF965A134.png?ex=67f9f650&is=67f8a4d0&hm=ade97e3b7f4c4acd1327be28e6e107a0dc214436a466337f4a9ba82fb103c627&")
-        embed.set_thumbnail(url=ctx.me.display_avatar.url)
-        embed.set_footer(text="Kurozen • Ton assistant multifonction", icon_url=ctx.me.display_avatar.url)
-        await ctx.send(embed=embed, view=HelpView())
+        embed.set_thumbnail(url=interaction.client.user.display_avatar.url)
+        embed.set_footer(text="Kurozen • Ton assistant multifonction", icon_url=interaction.client.user.display_avatar.url)
+        await interaction.response.send_message(embed=embed, view=HelpView(), ephemeral=False)
 
 # === Charger le COG ===
 async def setup(bot: commands.Bot):

@@ -10,11 +10,6 @@ class Moderation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # === Commande Kick (Prefix)
-    @commands.command(name="kick")
-    @commands.has_permissions(kick_members=True)
-    async def kick_prefix(self, ctx, member: discord.Member, *, reason: str = "Aucune raison"):
-        await self.process_kick(ctx, member, reason)
 
     # === Commande Kick (Slash)
     @app_commands.command(name="kick", description="Expulser un membre")
@@ -22,11 +17,6 @@ class Moderation(commands.Cog):
     async def kick_slash(self, interaction: discord.Interaction, member: discord.Member, reason: str = "Aucune raison"):
         await self.process_kick(interaction, member, reason)
 
-    # === Commande Ban (Prefix)
-    @commands.command(name="ban")
-    @commands.has_permissions(ban_members=True)
-    async def ban_prefix(self, ctx, member: discord.Member, *, reason: str = "Aucune raison"):
-        await self.process_ban(ctx, member, reason)
 
     # === Commande Ban (Slash)
     @app_commands.command(name="ban", description="Bannir un membre")

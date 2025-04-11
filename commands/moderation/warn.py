@@ -24,11 +24,6 @@ class WarnSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # === WARN (prefix)
-    @commands.command(name="warn")
-    @commands.has_permissions(kick_members=True)
-    async def warn_prefix(self, ctx, member: discord.Member, *, reason: str = "Aucune raison"):
-        await self.process_warn(ctx, member, reason)
 
     # === WARN (slash)
     @app_commands.command(name="warn", description="Avertir un membre")
@@ -121,11 +116,6 @@ class WarnSystem(commands.Cog):
             await context.send(embed=embed)
 
     # === !warns / /warns
-    @commands.command(name="warns")
-    @commands.has_permissions(kick_members=True)
-    async def warns_prefix(self, ctx, member: discord.Member):
-        await self.show_warns(ctx, member)
-
     @app_commands.command(name="warns", description="Voir le nombre d'avertissements d'un membre")
     @app_commands.checks.has_permissions(kick_members=True)
     async def warns_slash(self, interaction: discord.Interaction, member: discord.Member):
@@ -148,10 +138,6 @@ class WarnSystem(commands.Cog):
             await context.send(embed=embed)
 
     # === !resetwarns / /resetwarns
-    @commands.command(name="resetwarns")
-    @commands.has_permissions(ban_members=True)
-    async def resetwarns_prefix(self, ctx, member: discord.Member):
-        await self.reset_warns(ctx, member)
 
     @app_commands.command(name="resetwarns", description="Réinitialiser les warns d’un membre")
     @app_commands.checks.has_permissions(ban_members=True)
@@ -173,10 +159,6 @@ class WarnSystem(commands.Cog):
             await context.send(embed=embed)
 
     # === !warnlist / /warnlist
-    @commands.command(name="warnlist")
-    @commands.has_permissions(ban_members=True)
-    async def warnlist_prefix(self, ctx):
-        await self.list_warns(ctx)
 
     @app_commands.command(name="warnlist", description="Afficher tous les utilisateurs avertis")
     @app_commands.checks.has_permissions(ban_members=True)

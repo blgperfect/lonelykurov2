@@ -16,10 +16,7 @@ class AFKCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # === PREFIX ===
-    @commands.command(name="afk")
-    async def afk_prefix(self, ctx, *, reason=""):
-        await self.set_afk(ctx.author, ctx, reason)
+
 
     # === SLASH ===
     @app_commands.command(name="afk", description="Passe en mode AFK avec une raison facultative.")

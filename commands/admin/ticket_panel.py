@@ -184,13 +184,6 @@ class TicketSystem(commands.Cog):
         embed.set_image(url=EMBED_IMAGE_URL)
         await interaction.response.send_message(embed=embed, view=MainTicketView(), ephemeral=False)
 
-    @commands.command(name="fermer")
-    @commands.has_permissions(kick_members=True)
-    async def fermer_cmd(self, ctx):
-        if not ctx.channel.name.startswith("ticket-"):
-            return await ctx.send("❌ Ce n'est pas un ticket.")
-        view = ConfirmCloseView(ctx.author)
-        await ctx.send("⚠️ Veux-tu vraiment fermer ce ticket ?", view=view)
 
     @app_commands.command(name="fermer", description="Fermer le ticket actuel")
     @app_commands.checks.has_permissions(kick_members=True)

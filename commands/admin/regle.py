@@ -16,10 +16,6 @@ class ReglementCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="regles")
-    @commands.has_permissions(administrator=True)
-    async def regles_prefix(self, ctx):
-        await self.send_reglement_embed(ctx)
 
     @app_commands.command(name="regles", description="Affiche les règles du serveur avec bouton d'acceptation.")
     @app_commands.checks.has_permissions(administrator=True)
