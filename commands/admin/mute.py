@@ -89,9 +89,11 @@ class MuteManager(commands.Cog):
 
         try:
             await member.remove_roles(*roles_to_remove, reason="Mute temporaire")
+            await asyncio.sleep(0)  # Yield to event loop
             await member.add_roles(mute_role, reason=reason)
-        except discord.Forbidden:
-            return await interaction.response.send_message("❌ Impossible de modifier les rôles du membre (hiérarchie ou permissions).", ephemeral=True)
+        except Exception as e:
+            print(f"[Mute ERROR] {member.id} : {e}")
+            return await interaction.response.send_message("❌ Erreur lors de l’application du mute.", ephemeral=True)
 
         end_time = datetime.utcnow() + delta
 
@@ -119,13 +121,18 @@ class MuteManager(commands.Cog):
 
         try:
             await member.remove_roles(mute_role, reason="Unmute manuel")
+            await asyncio.sleep(0)
+
             if record:
-                previous_roles = [interaction.guild.get_role(int(rid)) for rid in record.get("previous_roles", [])]
-                previous_roles = [r for r in previous_roles if r is not None]
+                previous_roles = [
+                    interaction.guild.get_role(int(rid)) for rid in record.get("previous_roles", [])
+                ]
+                previous_roles = [r for r in previous_roles if r and not r.managed]
                 await member.add_roles(*previous_roles, reason="Rôles restaurés après mute")
             await mute_col.delete_many({"guild_id": str(interaction.guild.id), "user_id": str(member.id)})
         except Exception as e:
-            return await interaction.response.send_message(f"❌ Erreur : {e}", ephemeral=True)
+            print(f"[Unmute ERROR] {member.id} : {e}")
+            return await interaction.response.send_message("❌ Erreur lors du unmute.", ephemeral=True)
 
         await self.send_log(interaction.guild, member, interaction.user, "Unmute", reason="Manuel")
         await interaction.response.send_message(f"✅ {member.mention} a été unmute.")
@@ -134,23 +141,24 @@ class MuteManager(commands.Cog):
     async def unmute_loop(self):
         now = datetime.utcnow()
         async for record in mute_col.find({"unmute_at": {"$lte": now}}):
-            guild = self.bot.get_guild(int(record["guild_id"]))
-            if not guild:
-                continue
-            member = guild.get_member(int(record["user_id"]))
-            mute_role = guild.get_role(MUTE_ROLE_ID)
-            if member and mute_role in member.roles:
-                try:
+            try:
+                guild = self.bot.get_guild(int(record["guild_id"]))
+                if not guild:
+                    continue
+                member = guild.get_member(int(record["user_id"]))
+                mute_role = guild.get_role(MUTE_ROLE_ID)
+                if member and mute_role in member.roles:
                     await member.remove_roles(mute_role, reason="Mute expiré")
+                    await asyncio.sleep(0)
                     previous_roles = [
                         guild.get_role(int(rid)) for rid in record.get("previous_roles", [])
                     ]
-                    previous_roles = [r for r in previous_roles if r is not None]
+                    previous_roles = [r for r in previous_roles if r and not r.managed]
                     await member.add_roles(*previous_roles, reason="Rôles restaurés après mute")
                     await self.send_log(guild, member, self.bot.user, "Unmute", "Automatique (fin du mute)")
-                except:
-                    pass
-            await mute_col.delete_one({"_id": record["_id"]})
+                await mute_col.delete_one({"_id": record["_id"]})
+            except Exception as e:
+                print(f"[AutoUnmute ERROR] : {e}")
 
     @unmute_loop.before_loop
     async def before_loop(self):
