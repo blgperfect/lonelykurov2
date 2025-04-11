@@ -10,14 +10,13 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 
-mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-db = mongo_client["kurozen_system"]  # ✅ fix ici
+client_mongo = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+db = client_mongo[DATABASE_NAME]
 presentation_coll = db["presentations"]
-config_coll = db["presentation_configs"]
 
+PRESENTATION_CHANNEL_ID = 1349914847361503276  # 🔒 Salon fixe
 
-# 📄 Modèle brut envoyé dans le salon
-PRESENTATION_TEMPLATE = (
+PRESENTATION_TEMPLATE = ( 
     "╔═౨ৎ  **IDENTITÉ**\n"
     "╠ **Prénom** :\n"
     "╠ **Surnom** :\n"
@@ -64,11 +63,9 @@ class PresentationModal(discord.ui.Modal, title="✏️ Écris ta présentation"
         existing = await presentation_coll.find_one(query, sort=[("date", -1)])
 
         if self.mode == "create" and existing:
-            await interaction.response.send_message("❌ Tu as déjà une présentation. Utilise modifier.", ephemeral=True)
-            return
+            return await interaction.response.send_message("❌ Tu as déjà une présentation. Utilise modifier.", ephemeral=True)
         if self.mode == "modify" and not existing:
-            await interaction.response.send_message("❌ Aucune présentation trouvée à modifier.", ephemeral=True)
-            return
+            return await interaction.response.send_message("❌ Aucune présentation trouvée à modifier.", ephemeral=True)
 
         data = {
             "user_id": str(self.user.id),
@@ -86,18 +83,17 @@ class PresentationModal(discord.ui.Modal, title="✏️ Écris ta présentation"
 
         await interaction.response.send_message(msg, ephemeral=True)
 
-        config = await config_coll.find_one({"guild_id": str(self.guild.id)})
-        if config and config.get("active") and config.get("channel_id"):
-            channel = self.guild.get_channel(int(config["channel_id"]))
-            if channel:
-                embed = discord.Embed(
-                    title=f"Présentation de {self.user.display_name}",
-                    description=content,
-                    color=discord.Color.blue() if self.mode == "create" else discord.Color.green(),
-                    timestamp=datetime.utcnow()
-                )
-                embed.set_footer(text="Présentation automatique")
-                await channel.send(content=f"{self.user.mention}", embed=embed)
+        # 🔁 Envoi direct dans le salon prédéfini
+        channel = self.guild.get_channel(PRESENTATION_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(
+                title=f"Présentation de {self.user.display_name}",
+                description=content,
+                color=discord.Color.blue() if self.mode == "create" else discord.Color.green(),
+                timestamp=datetime.utcnow()
+            )
+            embed.set_footer(text="Présentation automatique")
+            await channel.send(content=f"{self.user.mention}", embed=embed)
 
 class PresentationView(discord.ui.View):
     def __init__(self, user: discord.User, guild: discord.Guild):
@@ -153,35 +149,6 @@ class PresentationUI(commands.Cog):
         )
         view = PresentationView(interaction.user, interaction.guild)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    @app_commands.command(name="presentationconfig", description="Configure le salon des présentations (admin)")
-    @app_commands.describe(channel="Salon où envoyer les présentations")
-    async def presentationconfig(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("❌ Tu dois être admin.", ephemeral=True)
-
-        await config_coll.update_one(
-            {"guild_id": str(interaction.guild.id)},
-            {"$set": {
-                "channel_id": str(channel.id),
-                "guild_id": str(interaction.guild.id),
-                "active": True
-            }},
-            upsert=True
-        )
-
-        await interaction.response.send_message(f"✅ Salon configuré : {channel.mention}", ephemeral=True)
-
-        # Envoi du message d'accueil + épinglage
-        intro = f"👋 Bienvenue dans le salon des présentations de **{interaction.guild.name}** !\n\n" \
-                "Tu peux utiliser la commande `/presentation` pour créer ou modifier ta présentation. " \
-                "Une fois créée, elle sera automatiquement publiée ici."
-        intro_message = await channel.send(intro)
-        await channel.send(PRESENTATION_TEMPLATE)
-        try:
-            await intro_message.pin()
-        except discord.Forbidden:
-            await channel.send("⚠️ Je n'ai pas la permission d'épingler ce message.")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(PresentationUI(bot))
